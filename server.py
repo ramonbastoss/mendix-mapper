@@ -1,10 +1,22 @@
 from mcp.server.fastmcp import FastMCP
 
+from tools.find_unit_by_id import find_unit_by_id
+from tools.find_unit_by_name import find_unit_by_name
+from tools.find_units_by_ids import find_units_by_ids
+from tools.find_units_by_similar_name import find_units_by_similar_name
+from tools.find_units_that_use import find_units_that_use
 from tools.generate_dump import generate_dump
+from tools.get_module_security import get_module_security
+from tools.list_folder_structure import list_folder_structure
+from tools.list_modules import list_modules
 from tools.list_projects import list_projects
+from tools.list_user_roles import list_user_roles
+from tools.search_text import search_text
 
 mcp = FastMCP("Mendix Mapper")
 
+
+# --- setup -----------------------------------------------------------------
 
 @mcp.tool()
 def tool_list_projects() -> dict:
@@ -26,6 +38,126 @@ def tool_generate_dump(project: str = None) -> dict:
     If 'project' is omitted, the configured default is used.
     """
     return generate_dump(project)
+
+
+# --- finding units ---------------------------------------------------------
+
+@mcp.tool()
+def tool_find_unit_by_name(name: str, project: str = None) -> dict:
+    """
+    Find units by exact name.
+    Accepts a simple name ('ACT_Save') or a qualified one ('MyModule.ACT_Save').
+    A simple name may match several modules, so prefer the qualified form when
+    you know the module.
+    If 'project' is omitted, the configured default is used.
+    """
+    return find_unit_by_name(name, project)
+
+
+@mcp.tool()
+def tool_find_unit_by_id(id: str, project: str = None) -> dict:
+    """
+    Return the full JSON of a single unit by its exact $ID (a UUID).
+    Use it when you already have an ID and want the unit's details.
+    If 'project' is omitted, the configured default is used.
+    """
+    return find_unit_by_id(id, project)
+
+
+@mcp.tool()
+def tool_find_units_by_ids(ids: list[str], project: str = None) -> dict:
+    """
+    Resolve several unit $IDs at once.
+    IDs that do not exist are flagged individually instead of failing the call.
+    If 'project' is omitted, the configured default is used.
+    """
+    return find_units_by_ids(ids, project)
+
+
+@mcp.tool()
+def tool_find_units_by_similar_name(name: str, limit: int = 5,
+                                    project: str = None) -> dict:
+    """
+    Fuzzy-search units by name.
+    Use it when the exact name is unknown or possibly misspelled; it returns the
+    closest matches.
+    If 'project' is omitted, the configured default is used.
+    """
+    return find_units_by_similar_name(name, limit, project)
+
+
+@mcp.tool()
+def tool_search_text(query: str, module: str = None, unit_type: str = None,
+                     case_sensitive: bool = False, project: str = None) -> dict:
+    """
+    Search for units whose JSON contains a given string.
+    This is what replaces grep on a codebase stored as binary: page labels,
+    button captions, hardcoded strings in microflows, attribute names.
+    Optional filters narrow it to one module or one $Type.
+    If 'project' is omitted, the configured default is used.
+    """
+    return search_text(query, module, unit_type, case_sensitive, project)
+
+
+# --- understanding the app -------------------------------------------------
+
+@mcp.tool()
+def tool_find_units_that_use(name: str = None, id: str = None,
+                             project: str = None) -> dict:
+    """
+    Return every unit that references the given one.
+    This is the impact question: which microflows, pages or entities depend on
+    it, and therefore what a change might break. Accepts an exact name or an $ID.
+    If 'project' is omitted, the configured default is used.
+    """
+    return find_units_that_use(name, id, project)
+
+
+@mcp.tool()
+def tool_list_folder_structure(module: str = None, folder: str = None,
+                               project: str = None) -> dict:
+    """
+    Return the folder tree with the units inside each folder.
+    Filter by module and/or folder name (partial, case-insensitive).
+    Use it to see how the app is organised, or what lives in a given folder.
+    If 'project' is omitted, the configured default is used.
+    """
+    return list_folder_structure(module, folder, project)
+
+
+@mcp.tool()
+def tool_list_modules(source: str = "all", project: str = None) -> dict:
+    """
+    List the app's modules.
+    'source' filters by origin: 'all' (default), 'marketplace' or 'own'.
+    Each entry carries the module $ID, its name, and whether it is marked as a
+    UI resources module.
+    If 'project' is omitted, the configured default is used.
+    """
+    return list_modules(source, project)
+
+
+# --- security --------------------------------------------------------------
+
+@mcp.tool()
+def tool_list_user_roles(project: str = None) -> dict:
+    """
+    Return the app's user roles, with the module roles each one aggregates and
+    the roles it is allowed to manage.
+    If 'project' is omitted, the configured default is used.
+    """
+    return list_user_roles(project)
+
+
+@mcp.tool()
+def tool_get_module_security(module: str, project: str = None) -> dict:
+    """
+    Return a module's security unit and the module roles defined in it.
+    Also returns the security unit's $ID, which is what lets you follow role
+    changes through git history.
+    If 'project' is omitted, the configured default is used.
+    """
+    return get_module_security(module, project)
 
 
 if __name__ == "__main__":
