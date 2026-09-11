@@ -1,0 +1,4 @@
+# The < 2 pin is mandatory: mcp 2.x removed the `mcp.server.fastmcp` module,
+# which server.py imports on its first line. Without the pin the server does
+# not even start.
+mcp[cli]<2

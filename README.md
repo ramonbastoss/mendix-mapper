@@ -21,10 +21,14 @@ Once the server is connected, questions like these become answerable without lea
 - Which entities are reachable from the client, and what access rules do they have?
 - Which pages and nanoflows can trigger this microflow?
 
-## Requirements
+## Setup
+
+See **[GETTING_STARTED.md](GETTING_STARTED.md)** — clone, virtual environment, one config file, and registering the server. About ten minutes.
+
+Requirements:
 
 - Python 3.10+
-- Mendix Studio Pro installed (the server shells out to `mx.exe` to dump the `.mpr`)
+- Mendix Studio Pro installed (the server shells out to `mx.exe` to dump the `.mpr`; Studio Pro never needs to be running)
 - Windows (paths and `mx.exe` are Windows-oriented today)
 
 ## Status

@@ -1,0 +1,22 @@
+# Local, per-machine configuration. Never versioned: it holds absolute paths
+# that are only true on one person's machine. Copy projects.example.json to
+# projects.json and fill it in.
+/projects.json
+
+# Generated data. A dump of a mid-sized app is ~200 MB and is derived from
+# the .mpr, so it is always reproducible with generate_dump.
+/dump/
+
+# Tool output (spilled units, diffs, analysis reports).
+/temp/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.venv/
+
+# IDEs
+.vscode/
+.idea/

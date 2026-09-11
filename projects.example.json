@@ -1,0 +1,23 @@
+{
+  "_comment": "Copy this file to projects.json and edit it. projects.json is gitignored because every path below is true only on your machine. Each entry is one working copy: if you keep one checkout per branch, you get one entry per branch.",
+
+  "default": "myapp-dev",
+
+  "projects": {
+    "myapp-dev": {
+      "name": "MyApp - Dev",
+      "mpr_path": "C:\\Users\\you\\Mendix\\MyApp-Dev\\MyApp.mpr",
+      "dump_path": "C:\\mcp\\mendix-mapper\\dump\\myapp-dev.json",
+      "mx_path": "C:\\Program Files\\Mendix\\10.24.13.86719\\modeler\\mx.exe",
+      "fieldbook_path": "C:\\knowledge\\myapp-fieldbook-dev"
+    },
+
+    "myapp-acc": {
+      "name": "MyApp - Acceptance",
+      "mpr_path": "C:\\Users\\you\\Mendix\\MyApp-Acc\\MyApp.mpr",
+      "dump_path": "C:\\mcp\\mendix-mapper\\dump\\myapp-acc.json",
+      "mx_path": "C:\\Program Files\\Mendix\\10.24.13.86719\\modeler\\mx.exe",
+      "fieldbook_path": "C:\\knowledge\\myapp-fieldbook-acc"
+    }
+  }
+}
