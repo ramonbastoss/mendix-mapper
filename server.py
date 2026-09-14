@@ -1,5 +1,6 @@
 from mcp.server.fastmcp import FastMCP
 
+from tools.create_fieldbook import create_fieldbook
 from tools.find_unit_by_id import find_unit_by_id
 from tools.find_unit_by_name import find_unit_by_name
 from tools.find_units_by_ids import find_units_by_ids
@@ -12,6 +13,7 @@ from tools.list_modules import list_modules
 from tools.list_projects import list_projects
 from tools.list_user_roles import list_user_roles
 from tools.search_text import search_text
+from tools.write_knowledge import write_knowledge
 
 mcp = FastMCP("Mendix Mapper")
 
@@ -158,6 +160,45 @@ def tool_get_module_security(module: str, project: str = None) -> dict:
     If 'project' is omitted, the configured default is used.
     """
     return get_module_security(module, project)
+
+
+# --- knowledge -------------------------------------------------------------
+
+@mcp.tool()
+def tool_create_fieldbook(path: str, name: str = None, branch: str = None,
+                          register: bool = False, project: str = None) -> dict:
+    """
+    Create an empty fieldbook — the project-specific knowledge a Mendix app's
+    model cannot state — and optionally register it in projects.json.
+    Writes the manifest, a knowledge/ directory and a README saying what belongs
+    in it. 'branch' defaults to the branch the working copy is currently on.
+    Refuses a non-empty directory, and refuses anywhere inside the Mendix working
+    copy — a fieldbook needs a repository of its own to be reviewable.
+    It does not run git init, commit, or create anything remote.
+    If 'project' is omitted, the configured default is used.
+    """
+    return create_fieldbook(path, name, branch, project, register)
+
+
+@mcp.tool()
+def tool_write_knowledge(title: str, body: str, entities: list[str] = None,
+                         modules: list[str] = None, author: str = None,
+                         target: str = "fieldbook", slug: str = None,
+                         project: str = None) -> dict:
+    """
+    Create or update one knowledge entry — what the model itself cannot tell you.
+    Use it for the things a dump can never answer: a role that looks orphaned but
+    is not, two fields that look interchangeable and are not, a name the business
+    uses that has no entity behind it.
+    Writing the same title twice updates that entry instead of duplicating it.
+    Every name in 'entities' is checked against the dump, and the fieldbook's
+    branch is checked against the working copy's, before anything is written.
+    Nothing is committed: the file lands in the working tree for you to review.
+    Use target='engine' only for knowledge true of any Mendix app.
+    If 'project' is omitted, the configured default is used.
+    """
+    return write_knowledge(title, body, entities, modules, author, target, slug,
+                           project)
 
 
 if __name__ == "__main__":

@@ -82,6 +82,43 @@ def resolve_repo_path(project: str = None) -> str:
     return repo
 
 
+def entity_index(project: str = None) -> dict[str, str]:
+    """Map every domain entity of the app to its qualified name.
+
+    Returns {lowercased "Module.Entity": "Module.Entity"}, so a caller can do a
+    case-insensitive lookup and still report the canonical casing back.
+
+    Entities are NOT top-level units: they live inside a
+    `DomainModels$DomainModel` unit, which itself carries no name and no
+    $QualifiedName - only a `$ContainerID` pointing at its `Projects$Module`.
+    That is why searching the units array for an entity name finds nothing, and
+    why the qualified name has to be assembled here instead of read off a field.
+    """
+    units = load_units(project)
+
+    module_by_id = {
+        u["$ID"]: u.get("name")
+        for u in units
+        if u.get("$Type") == "Projects$Module" and u.get("$ID")
+    }
+
+    index = {}
+    for u in units:
+        if u.get("$Type") != "DomainModels$DomainModel":
+            continue
+        module = module_by_id.get(u.get("$ContainerID"))
+        if not module:
+            continue
+        for entity in u.get("entities") or []:
+            name = entity.get("name")
+            if not name:
+                continue
+            qualified = f"{module}.{name}"
+            index[qualified.lower()] = qualified
+
+    return index
+
+
 def unit_names(unit: dict) -> list[str]:
     names = []
     if unit.get("$QualifiedName"):
