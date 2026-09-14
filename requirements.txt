@@ -2,3 +2,10 @@
 # which server.py imports on its first line. Without the pin the server does
 # not even start.
 mcp[cli]<2
+
+# BSON decoding for .mxunit files, which is what the git tools are built on.
+# The import is `bson`, but it ships inside pymongo. The PyPI package literally
+# named `bson` is an unrelated project: installing it shadows this one and the
+# git tools start failing on a missing `bson.decode`. If that happens, uninstall
+# `bson` and keep pymongo.
+pymongo>=4

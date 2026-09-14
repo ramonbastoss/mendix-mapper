@@ -16,7 +16,8 @@ import re
 import unicodedata
 from datetime import date
 
-from tools._utils import entity_index, resolve_project, resolve_repo_path
+from tools._utils import (current_branch, entity_index, resolve_project,
+                          resolve_repo_path)
 
 SUPPORTED_SCHEMA_VERSIONS = (1,)
 
@@ -98,30 +99,6 @@ def _read_manifest(fieldbook_path: str) -> dict:
         )
     manifest["schema_version"] = version
     return manifest
-
-
-def _current_branch(repo: str) -> str:
-    import subprocess
-
-    # stdin=DEVNULL is not optional. Under the stdio transport this process's
-    # stdin is the JSON-RPC pipe the client is actively reading; a git that
-    # inherits that handle never returns, and since it also holds the output
-    # pipes open, the call hangs forever and takes the whole server with it.
-    # The timeout is the second line of defence: an error beats a dead server.
-    try:
-        result = subprocess.run(
-            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-            cwd=repo,
-            stdin=subprocess.DEVNULL,
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-    except subprocess.TimeoutExpired:
-        raise RuntimeError(f"git rev-parse timed out in '{repo}'.")
-    if result.returncode != 0:
-        raise RuntimeError(f"git rev-parse failed in '{repo}': {result.stderr.strip()}")
-    return result.stdout.strip()
 
 
 def write_knowledge(
@@ -217,7 +194,7 @@ def write_knowledge(
                         "trusting the fieldbook."
                     ),
                 }
-            working_copy_branch = _current_branch(resolve_repo_path(project))
+            working_copy_branch = current_branch(resolve_repo_path(project))
             if declared != working_copy_branch:
                 return {
                     "success": False,

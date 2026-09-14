@@ -11,9 +11,9 @@ It does not run git, does not commit, and does not create anything remote.
 
 import json
 import os
-import subprocess
 
-from tools._utils import _CONFIG_PATH, resolve_project, resolve_repo_path
+from tools._utils import (_CONFIG_PATH, current_branch, resolve_project,
+                          resolve_repo_path)
 
 SCHEMA_VERSION = 1
 
@@ -121,31 +121,6 @@ merge the fieldbook too.** Nothing automates that.
 """
 
 
-def _current_branch(repo: str) -> str:
-    # stdin=DEVNULL is not optional. Under the stdio transport this process's
-    # stdin is the JSON-RPC pipe the client is actively reading; a git that
-    # inherits that handle never returns, and since it also holds the output
-    # pipes open, the call hangs forever and takes the whole server with it.
-    # The timeout is the second line of defence: an error beats a dead server.
-    try:
-        result = subprocess.run(
-            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-            cwd=repo,
-            stdin=subprocess.DEVNULL,
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-    except subprocess.TimeoutExpired:
-        raise RuntimeError(
-            f"git rev-parse timed out in '{repo}'. Pass 'branch' explicitly to "
-            "scaffold without asking git."
-        )
-    if result.returncode != 0:
-        raise RuntimeError(f"git rev-parse failed in '{repo}': {result.stderr.strip()}")
-    return result.stdout.strip()
-
-
 def _is_inside(child: str, parent: str) -> bool:
     try:
         return os.path.commonpath([
@@ -242,9 +217,14 @@ def create_fieldbook(path: str, name: str = None, branch: str = None,
 
     if not branch:
         try:
-            branch = _current_branch(repo)
+            branch = current_branch(repo)
         except RuntimeError as e:
-            return {"success": False, "error": str(e)}
+            return {
+                "success": False,
+                "error": (
+                    f"{e} Pass 'branch' explicitly to scaffold without asking git."
+                ),
+            }
 
     manifest_project = key or os.path.basename(path)
     display_name = name or manifest_project

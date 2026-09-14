@@ -1,7 +1,8 @@
-"""Shared helpers: configuration, dump loading and response size capping."""
+"""Shared helpers: configuration, dump loading, git, and response size capping."""
 
 import json
 import os
+import subprocess
 
 _CONFIG_PATH = os.path.join(os.path.dirname(__file__), "..", "projects.json")
 
@@ -80,6 +81,53 @@ def resolve_repo_path(project: str = None) -> str:
             f"Directory '{repo}' is not a git repository (project '{key}')."
         )
     return repo
+
+
+GIT_TIMEOUT = 120
+
+
+def git_bytes(repo: str, *args) -> bytes:
+    """Run git inside `repo` and return its stdout, raising on failure.
+
+    Every git call in this server goes through here, for two reasons that are
+    easy to get wrong once each:
+
+    `stdin=DEVNULL` is not optional. Under the stdio transport this process's
+    stdin is the JSON-RPC pipe the client is actively reading; a git that
+    inherits that handle never returns, and since it also holds the output pipes
+    open, the call hangs forever and takes the whole server down with it - not
+    just that one tool.
+
+    `--no-pager` for the same family of reason: a pager waiting for a terminal
+    that is not there is another way to hang.
+
+    The timeout is the last line of defence. An error beats a dead server.
+    """
+    try:
+        result = subprocess.run(
+            ["git", "--no-pager", *args],
+            cwd=repo,
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            timeout=GIT_TIMEOUT,
+        )
+    except subprocess.TimeoutExpired:
+        raise RuntimeError(
+            f"`git {' '.join(args)}` timed out after {GIT_TIMEOUT}s in '{repo}'."
+        )
+    if result.returncode != 0:
+        raise RuntimeError(result.stderr.decode(errors="replace").strip())
+    return result.stdout
+
+
+def git_text(repo: str, *args) -> str:
+    """`git_bytes`, decoded. Use it for anything but blob contents."""
+    return git_bytes(repo, *args).decode(errors="replace")
+
+
+def current_branch(repo: str) -> str:
+    """The branch the working copy is on."""
+    return git_text(repo, "rev-parse", "--abbrev-ref", "HEAD").strip()
 
 
 def entity_index(project: str = None) -> dict[str, str]:

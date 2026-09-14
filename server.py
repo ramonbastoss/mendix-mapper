@@ -8,6 +8,10 @@ from tools.find_units_by_similar_name import find_units_by_similar_name
 from tools.find_units_that_use import find_units_that_use
 from tools.generate_dump import generate_dump
 from tools.get_module_security import get_module_security
+from tools.git_diff_commits import git_diff_commits
+from tools.git_history import git_history
+from tools.git_unit_history import git_unit_history
+from tools.git_units_between_commits import git_units_between_commits
 from tools.list_folder_structure import list_folder_structure
 from tools.list_modules import list_modules
 from tools.list_projects import list_projects
@@ -160,6 +164,68 @@ def tool_get_module_security(module: str, project: str = None) -> dict:
     If 'project' is omitted, the configured default is used.
     """
     return get_module_security(module, project)
+
+
+# --- git history -----------------------------------------------------------
+
+@mcp.tool()
+def tool_git_history(project: str = None, author: str = None, since: str = None,
+                     until: str = None, limit: int = None, branch: str = None,
+                     summarize_by_author: bool = False, file: str = None) -> dict:
+    """
+    Return the commits of the app's git repository, newest first.
+    Filter by author (name or e-mail, partial), date range, branch or a single
+    file. Dates take any format git takes: '2024-01-01', '2 weeks ago'.
+    Use summarize_by_author=true for 'who commits the most'; it ignores 'limit'.
+    If 'project' is omitted, the configured default is used.
+    """
+    return git_history(project, author, since, until, limit, branch,
+                       summarize_by_author, file)
+
+
+@mcp.tool()
+def tool_git_unit_history(unit: str, project: str = None, author: str = None,
+                          since: str = None, until: str = None,
+                          branch: str = None, limit: int = None,
+                          include_merges: bool = False,
+                          classify: bool = True) -> dict:
+    """
+    Return the commits that changed one unit, newest first — 'who changed X',
+    'when was X last touched'. Identify it by $ID, qualified name or plain name;
+    an ambiguous plain name comes back with the candidates.
+    With classify=true (default) each commit says what kind of change it was:
+    created, changed (logic), moved (only dragged on the canvas), or no_diff.
+    If 'project' is omitted, the configured default is used.
+    """
+    return git_unit_history(unit, project, author, since, until, branch, limit,
+                            include_merges, classify)
+
+
+@mcp.tool()
+def tool_git_diff_commits(project: str = None, ref_a: str = "HEAD~1",
+                          ref_b: str = "HEAD") -> dict:
+    """
+    Compare two git refs and report what changed in the model, not in the bytes.
+    One entry per .mxunit touched: status (created, modified, deleted) and how
+    many properties differ. The property-level detail is written to temp/diffs/
+    and pointed at by 'output_file' — read that file for the specifics.
+    For 'the last N commits' use ref_a='HEAD~N'.
+    If 'project' is omitted, the configured default is used.
+    """
+    return git_diff_commits(project, ref_a, ref_b)
+
+
+@mcp.tool()
+def tool_git_units_between_commits(project: str = None, ref_a: str = "HEAD~1",
+                                   ref_b: str = "HEAD") -> dict:
+    """
+    Return the microflows, nanoflows and pages created, moved and changed
+    between two refs. 'moved' means the only differences are positional —
+    somebody dragged things on the canvas and no behaviour changed.
+    Use it to review a branch or a day's work without reading every property.
+    If 'project' is omitted, the configured default is used.
+    """
+    return git_units_between_commits(project, ref_a, ref_b)
 
 
 # --- knowledge -------------------------------------------------------------
