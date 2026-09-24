@@ -152,7 +152,8 @@ def tool_resolve_operation_ids(ids: list[str], verbose: bool = False,
     the microflow, page or widget they invoke.
     In the browser's network tab, /xas/ calls take two shapes: 'executeaction'
     already names the microflow in params.actionname, while 'runtimeOperation'
-    carries only params.operationId — an opaque string like 'Ab3xK9/uQ1W+mNpZrS4tLg'.
+    carries only a top-level 'operationId' — a sibling of 'params', not inside
+    it — an opaque string like 'Ab3xK9/uQ1W+mNpZrS4tLg'.
     This is what turns those into names, and so what turns a recorded user
     journey into a list of microflows.
     Every operation type resolves, not just microflow calls; unknown ids are
