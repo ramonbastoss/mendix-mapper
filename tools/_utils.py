@@ -83,6 +83,42 @@ def resolve_repo_path(project: str = None) -> str:
     return repo
 
 
+def deployment_model_path(project: str = None, filename: str = None) -> str:
+    """Resolve a project key to its `deployment/model` directory, or a file in it.
+
+    Everything under `deployment/` is a *build* artifact, not the model: Studio
+    Pro writes it when the app is built, and it describes that build. It is
+    gitignored, it is absent in a fresh clone, and it goes stale the moment the
+    model changes without a rebuild. Callers are expected to report its mtime so
+    the caller can tell whether it still matches what they are asking about.
+
+    Derived from the parent directory of `mpr_path`, like `resolve_repo_path`.
+    """
+    key, proj = resolve_project(project)
+    mpr_path = proj.get("mpr_path")
+    if not mpr_path:
+        raise ValueError(f"Project '{key}' has no 'mpr_path' in projects.json.")
+
+    model_dir = os.path.join(os.path.dirname(mpr_path), "deployment", "model")
+    if not os.path.isdir(model_dir):
+        raise FileNotFoundError(
+            f"'{model_dir}' does not exist (project '{key}'). It is created by a "
+            "build: open the app in Studio Pro and run it once, or build it from "
+            "the command line."
+        )
+
+    if filename is None:
+        return model_dir
+
+    path = os.path.join(model_dir, filename)
+    if not os.path.exists(path):
+        raise FileNotFoundError(
+            f"'{path}' not found (project '{key}'). The deployment directory "
+            "exists but this file does not — the build may be incomplete."
+        )
+    return path
+
+
 GIT_TIMEOUT = 120
 
 

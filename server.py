@@ -16,6 +16,7 @@ from tools.list_folder_structure import list_folder_structure
 from tools.list_modules import list_modules
 from tools.list_projects import list_projects
 from tools.list_user_roles import list_user_roles
+from tools.resolve_operation_ids import resolve_operation_ids
 from tools.search_text import search_text
 from tools.write_knowledge import write_knowledge
 
@@ -141,6 +142,26 @@ def tool_list_modules(source: str = "all", project: str = None) -> dict:
     If 'project' is omitted, the configured default is used.
     """
     return list_modules(source, project)
+
+
+@mcp.tool()
+def tool_resolve_operation_ids(ids: list[str], verbose: bool = False,
+                               project: str = None) -> dict:
+    """
+    Resolve the opaque operation ids the Mendix client sends to the runtime into
+    the microflow, page or widget they invoke.
+    In the browser's network tab, /xas/ calls take two shapes: 'executeaction'
+    already names the microflow in params.actionname, while 'runtimeOperation'
+    carries only params.operationId — an opaque string like 'Ab3xK9/uQ1W+mNpZrS4tLg'.
+    This is what turns those into names, and so what turns a recorded user
+    journey into a list of microflows.
+    Every operation type resolves, not just microflow calls; unknown ids are
+    flagged individually. Reads deployment/model/operations.json, which a build
+    writes; ids are content-derived and survive a rebuild, and the returned
+    'built_at' says how old the table is.
+    If 'project' is omitted, the configured default is used.
+    """
+    return resolve_operation_ids(ids, verbose, project)
 
 
 # --- security --------------------------------------------------------------

@@ -20,6 +20,7 @@ Once the server is connected, questions like these become answerable without lea
 - Who changed this microflow, and when? What did they change?
 - Which entities are reachable from the client, and what access rules do they have?
 - Which pages and nanoflows can trigger this microflow?
+- The browser sent `operationId: "Ab3xK9/uQ1W+mNpZrS4tLg"` — which microflow is that? (Recording a user journey in the network tab and resolving the ids turns it into the list of microflows the journey actually ran.)
 
 ## Setup
 
