@@ -82,15 +82,22 @@ def tool_find_units_by_ids(ids: list[str], project: str = None) -> dict:
 
 
 @mcp.tool()
-def tool_find_units_by_similar_name(name: str, limit: int = 5,
+def tool_find_units_by_similar_name(name: str, limit: int = 10,
+                                    unit_type: str = None,
                                     project: str = None) -> dict:
     """
     Fuzzy-search units by name.
-    Use it when the exact name is unknown or possibly misspelled; it returns the
-    closest matches.
+    Use it when the exact name is unknown, only partly remembered, or slightly
+    wrong: it matches on word stems, so word order and inflection do not have to
+    line up ('SaveOrder' finds 'ACT_Order_SaveDraft').
+    Case does not matter, but word boundaries do: write 'save order' or
+    'SaveOrder', not 'saveorder'.
+    Returns identity fields only — id, $Type and name — so follow up with
+    tool_find_unit_by_name once you know which unit you meant.
+    Folders rank last unless 'unit_type' asks for them.
     If 'project' is omitted, the configured default is used.
     """
-    return find_units_by_similar_name(name, limit, project)
+    return find_units_by_similar_name(name, limit, unit_type, project)
 
 
 @mcp.tool()
@@ -272,13 +279,17 @@ def tool_create_fieldbook(path: str, name: str = None, branch: str = None,
 def tool_write_knowledge(title: str, body: str, entities: list[str] = None,
                          modules: list[str] = None, author: str = None,
                          target: str = "fieldbook", slug: str = None,
-                         project: str = None) -> dict:
+                         status: str = None, project: str = None) -> dict:
     """
     Create or update one knowledge entry — what the model itself cannot tell you.
     Use it for the things a dump can never answer: a role that looks orphaned but
     is not, two fields that look interchangeable and are not, a name the business
     uses that has no entity behind it.
     Writing the same title twice updates that entry instead of duplicating it.
+    'status' picks the shelf: 'implemented' for a rule the model already obeys,
+    'not-implemented' for one that is settled but has nothing behind it yet. The
+    directory is the status — write the rule in the present tense either way,
+    because shipping it should cost a file move and not a rewrite.
     Every name in 'entities' is checked against the dump, and the fieldbook's
     branch is checked against the working copy's, before anything is written.
     Nothing is committed: the file lands in the working tree for you to review.
@@ -286,7 +297,7 @@ def tool_write_knowledge(title: str, body: str, entities: list[str] = None,
     If 'project' is omitted, the configured default is used.
     """
     return write_knowledge(title, body, entities, modules, author, target, slug,
-                           project)
+                           status, project)
 
 
 if __name__ == "__main__":
