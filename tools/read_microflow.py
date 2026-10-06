@@ -2,7 +2,7 @@
 
 The dump is the Studio Pro file format: it describes a *drawing*. Every object
 carries its pixel position and size, every edge carries a bezier curve with two
-control vectors and two connection indices, and the only thing tying the two
+control vectors and two connection indexes, and the only thing tying the two
 together is a UUID. None of that is the logic, and on a medium microflow it is
 roughly 95% of the bytes.
 
