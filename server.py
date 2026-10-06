@@ -16,6 +16,7 @@ from tools.list_folder_structure import list_folder_structure
 from tools.list_modules import list_modules
 from tools.list_projects import list_projects
 from tools.list_user_roles import list_user_roles
+from tools.read_microflow import read_microflow
 from tools.resolve_operation_ids import resolve_operation_ids
 from tools.search_text import search_text
 from tools.write_knowledge import write_knowledge
@@ -114,6 +115,27 @@ def tool_search_text(query: str, module: str = None, unit_type: str = None,
 
 
 # --- understanding the app -------------------------------------------------
+
+@mcp.tool()
+def tool_read_microflow(name: str, project: str = None) -> dict:
+    """
+    Read one microflow, nanoflow or rule as linearized text — numbered steps,
+    indented branches, every call with its arguments, and the validation and
+    message texts resolved out of the translation lists they are buried in.
+    This is the tool for "what does this flow do". Ask it by qualified name
+    ('MyModule.ACT_Save'); a simple name that matches several units is refused
+    with the qualified one to use.
+    The raw model is deliberately not here: layout, $IDs and defaults are about
+    90% of a microflow's JSON and none of it is the logic. When you need the
+    exact model — $IDs to cross-reference, or a diff — call
+    tool_find_unit_by_name with the same name.
+    Where the graph does not linearize (a merge reached twice, a loop back-edge)
+    the step prints as 'goto <n>' and 'notes' says so, so an approximation is
+    never silent.
+    If 'project' is omitted, the configured default is used.
+    """
+    return read_microflow(name, project)
+
 
 @mcp.tool()
 def tool_find_units_that_use(name: str = None, id: str = None,
