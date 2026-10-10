@@ -1,10 +1,17 @@
-"""Write a knowledge entry into a fieldbook - or into the engine's own notes.
+"""Write a markdown file into a fieldbook - or into the engine's own notes.
 
-This is the only supported way to add knowledge. Hand-written markdown makes the
-schema a convention, and a convention does not survive a second contributor:
-the point of the contract is that the engine *refuses* what does not fit. Going
-through a tool is what lets `entities` be checked against the dump at the moment
-the entry is written, when the mistake is still cheap to fix.
+This is the only supported way to add knowledge. Not because of what it puts
+in the file - it writes the body through, untouched - but because of what it
+refuses before writing: a fieldbook with no manifest, a manifest declaring a
+schema this engine does not support, a fieldbook whose branch does not match the
+working copy, a path that climbs out of the knowledge directory, a body carrying
+somebody's machine path. None of that depends on knowing the shape of an entry.
+
+What the caller decides is the path, and the path is the whole of the layout:
+`iteration-rule.md` lands at the root of the knowledge directory,
+`IterationRules/iteration-rule.md` creates the subdirectory and files it
+there. Grouping is therefore a convention between the people writing - the
+engine neither imposes a taxonomy nor validates one.
 
 It writes to the working tree and stops there. Reviewing the diff, committing and
 pushing stay with whoever is writing - the engine never commits on someone's
@@ -13,56 +20,19 @@ behalf.
 
 import os
 import re
-import unicodedata
-from datetime import date
 
-from tools._utils import (current_branch, entity_index, resolve_project,
-                          resolve_repo_path)
+from tools._utils import (current_branch, resolve_project, resolve_repo_path)
 
 SUPPORTED_SCHEMA_VERSIONS = (1,)
 
 VALID_TARGETS = ("fieldbook", "engine")
 
-# Front-matter keys are English even when the body is not: the same parser reads
-# the engine's own knowledge (published, English) and every project fieldbook, so
-# the schema cannot be per-language.
-REQUIRED_FRONT_MATTER = ("title", "entities", "modules", "updated")
+# Knowledge is markdown because markdown is what a merge request can review.
+MARKDOWN_SUFFIX = ".md"
 
 # An absolute path is one person's machine leaking into a shared repo. Working
 # copies differ per person; that belongs in the local projects.json.
 _ABSOLUTE_PATH = re.compile(r"(?:[A-Za-z]:[\\/]|\\\\[A-Za-z0-9_.-]+\\)")
-
-
-def _slugify(title: str) -> str:
-    """Deterministic file name from a title, so nobody invents a convention."""
-    normalized = unicodedata.normalize("NFKD", title)
-    ascii_only = "".join(c for c in normalized if not unicodedata.combining(c))
-    slug = re.sub(r"[^a-zA-Z0-9]+", "-", ascii_only).strip("-").lower()
-    return slug or "untitled"
-
-
-def _yaml_list(values: list[str], indent: str = "  ") -> str:
-    return "\n".join(f"{indent}- {v}" for v in values)
-
-
-def _read_front_matter(text: str) -> dict:
-    """Pull the front-matter block off an existing entry.
-
-    Deliberately shallow: it only needs the scalars an update has to preserve
-    (author, and the original title if none is given), not a general YAML tree.
-    """
-    if not text.startswith("---"):
-        return {}
-    end = text.find("\n---", 3)
-    if end == -1:
-        return {}
-    block = text[3:end]
-    found = {}
-    for line in block.splitlines():
-        match = re.match(r"^([a-z_]+):\s*(.*)$", line)
-        if match and match.group(2).strip():
-            found[match.group(1)] = match.group(2).strip().strip('"').strip("'")
-    return found
 
 
 def _read_manifest(fieldbook_path: str) -> dict:
@@ -101,35 +71,82 @@ def _read_manifest(fieldbook_path: str) -> dict:
     return manifest
 
 
+def _resolve_entry_path(knowledge_dir: str, path: str) -> str:
+    """Turn the caller's relative path into an absolute one inside knowledge_dir.
+
+    The path is the only thing deciding layout now, so this is where the layout
+    is defended: it has to stay inside the knowledge directory and it has to be
+    markdown. Everything else about the shape of the tree is the caller's call.
+    """
+    raw = (path or "").strip().replace("\\", "/")
+    if not raw:
+        raise ValueError(
+            "path is required. It is relative to the fieldbook's knowledge "
+            "directory - 'iteration-rule.md', or "
+            "'IterationRules/iteration-rule.md' to group it in a subfolder."
+        )
+
+    if _ABSOLUTE_PATH.match(raw) or raw.startswith("/"):
+        raise ValueError(
+            f"path '{path}' is absolute. It has to be relative to the knowledge "
+            "directory, which the fieldbook manifest declares - the engine, not "
+            "the caller, decides where that directory lives."
+        )
+
+    parts = [p for p in raw.split("/") if p not in ("", ".")]
+    if not parts:
+        raise ValueError(f"path '{path}' names no file.")
+    if ".." in parts:
+        raise ValueError(
+            f"path '{path}' climbs out of the knowledge directory with '..'. "
+            "Knowledge is written inside it or not at all."
+        )
+
+    name = parts[-1]
+    stem, extension = os.path.splitext(name)
+    if not stem:
+        raise ValueError(f"path '{path}' has no file name, only an extension.")
+    if not extension:
+        parts[-1] = name + MARKDOWN_SUFFIX
+    elif extension.lower() != MARKDOWN_SUFFIX:
+        raise ValueError(
+            f"path '{path}' ends in '{extension}'. Knowledge entries are "
+            f"markdown ('{MARKDOWN_SUFFIX}'), because markdown is what a merge "
+            "request can review line by line."
+        )
+
+    resolved = os.path.abspath(os.path.join(knowledge_dir, *parts))
+    root = os.path.abspath(knowledge_dir)
+    if os.path.commonpath([resolved, root]) != root:
+        raise ValueError(
+            f"path '{path}' resolves outside the knowledge directory."
+        )
+    return resolved
+
+
 def write_knowledge(
-    title: str,
+    path: str,
     body: str,
-    entities: list[str] = None,
-    modules: list[str] = None,
-    author: str = None,
     target: str = "fieldbook",
-    slug: str = None,
     project: str = None,
 ) -> dict:
-    """Create or update one knowledge entry. Writes to disk, never commits.
+    """Create or overwrite one markdown file. Writes to disk, never commits.
 
-    `target='fieldbook'` writes into the project's fieldbook and validates every
-    name in `entities` against the dump. `target='engine'` writes platform
-    knowledge into the engine's own knowledge/ directory and rejects `entities`
-    outright - anything tied to a specific app's model is not platform knowledge.
+    `target='fieldbook'` writes into the project's fieldbook, after checking the
+    manifest and the branch. `target='engine'` writes platform knowledge into the
+    engine's own knowledge/ directory, which has no manifest and no branch to
+    match - anything tied to one app's model does not belong there.
+
+    The body is written through exactly as given: no front-matter, no header, no
+    normalisation. What the file says is entirely the caller's.
     """
     if target not in VALID_TARGETS:
         return {
             "success": False,
             "error": f"Invalid target: '{target}'. Use one of {VALID_TARGETS}.",
         }
-    if not (title or "").strip():
-        return {"success": False, "error": "title is required."}
     if not (body or "").strip():
         return {"success": False, "error": "body is required."}
-
-    entities = [e.strip() for e in (entities or []) if e.strip()]
-    modules = [m.strip() for m in (modules or []) if m.strip()]
 
     leak = _ABSOLUTE_PATH.search(body)
     if leak:
@@ -143,22 +160,9 @@ def write_knowledge(
             ),
         }
 
-    warnings = []
-
-    # ---- resolve where this entry goes ---------------------------------
+    # ---- resolve where this file goes -----------------------------------
     try:
         if target == "engine":
-            if entities:
-                return {
-                    "success": False,
-                    "error": (
-                        "target='engine' does not accept `entities`. Engine "
-                        "knowledge is about the Mendix platform and has to hold "
-                        "without any particular app's model. If the note only "
-                        "makes sense with those entities, it belongs in the "
-                        "project fieldbook instead."
-                    ),
-                }
             root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
             knowledge_dir = os.path.join(root, "knowledge")
         else:
@@ -181,9 +185,9 @@ def write_knowledge(
 
             manifest = _read_manifest(fieldbook_path)
 
-            # A fieldbook describes one branch of the Mendix app. Reading the Hmg
-            # fieldbook while the working copy sits on Dsv produces a wrong answer
-            # that looks right, so this refuses instead of warning.
+            # A fieldbook describes one branch of the Mendix app. Reading the
+            # release fieldbook while the working copy sits on main produces a
+            # wrong answer that looks right, so this refuses instead of warning.
             declared = manifest.get("branch")
             if not declared:
                 return {
@@ -208,96 +212,38 @@ def write_knowledge(
             knowledge_dir = os.path.join(
                 fieldbook_path, manifest.get("knowledge", "knowledge/")
             )
+
+        entry_path = _resolve_entry_path(knowledge_dir, path)
     except (FileNotFoundError, ValueError, RuntimeError) as e:
         return {"success": False, "error": str(e)}
 
-    # ---- validate the entity names against the dump ---------------------
-    if entities:
-        try:
-            index = entity_index(project)
-        except (FileNotFoundError, ValueError) as e:
-            return {"success": False, "error": str(e)}
-
-        canonical, unknown = [], []
-        for name in entities:
-            match = index.get(name.lower())
-            if match:
-                canonical.append(match)
-            else:
-                unknown.append(name)
-
-        if unknown:
-            import difflib
-
-            suggestions = {}
-            for name in unknown:
-                close = difflib.get_close_matches(name.lower(), index.keys(), n=3)
-                if close:
-                    suggestions[name] = [index[c] for c in close]
-            return {
-                "success": False,
-                "error": (
-                    "These names are not entities in the dump: "
-                    f"{unknown}. `entities` is what links this entry back to the "
-                    "model, so a name that does not resolve would quietly break "
-                    "that link. Fix the name, or regenerate the dump if the "
-                    "entity is newer than it."
-                ),
-                "did_you_mean": suggestions,
-            }
-        entities = sorted(set(canonical))
-
-        derived = sorted({e.rsplit(".", 1)[0] for e in entities})
-        if not modules:
-            modules = derived
-        else:
-            missing = [m for m in derived if m not in modules]
-            if missing:
-                warnings.append(
-                    f"modules did not list {missing}, which the entities live in; "
-                    "added them."
-                )
-                modules = sorted(set(modules) | set(derived))
-
     # ---- write ----------------------------------------------------------
-    file_slug = _slugify(slug or title)
-    path = os.path.join(knowledge_dir, f"{file_slug}.md")
-    existing = None
-    if os.path.exists(path):
-        with open(path, encoding="utf-8") as f:
-            existing = f.read()
-        previous = _read_front_matter(existing)
-        if not author:
-            author = previous.get("author")
+    existed = os.path.exists(entry_path)
 
-    front = [
-        "---",
-        f"title: {title}",
-        "entities:" if entities else "entities: []",
-    ]
-    if entities:
-        front.append(_yaml_list(entities))
-    front.append("modules:" if modules else "modules: []")
-    if modules:
-        front.append(_yaml_list(modules))
-    front.append(f"updated: {date.today().isoformat()}")
-    if author:
-        front.append(f"author: {author}")
-    front.append("---")
+    warnings = []
+    parent = os.path.dirname(entry_path)
+    created_directory = not os.path.isdir(parent)
 
-    content = "\n".join(front) + "\n\n" + body.strip() + "\n"
+    os.makedirs(parent, exist_ok=True)
+    with open(entry_path, "w", encoding="utf-8", newline="\n") as f:
+        f.write(body.strip() + "\n")
 
-    os.makedirs(knowledge_dir, exist_ok=True)
-    with open(path, "w", encoding="utf-8", newline="\n") as f:
-        f.write(content)
+    if created_directory:
+        # A typo in a folder name is otherwise invisible: it just quietly grows a
+        # sibling directory next to the one that was meant.
+        warnings.append(
+            f"Created directory '{os.path.relpath(parent, knowledge_dir)}'. If "
+            "the entry was meant to join an existing group, check the spelling."
+        )
 
     return {
         "success": True,
-        "action": "updated" if existing is not None else "created",
-        "path": os.path.abspath(path),
+        "action": "overwritten" if existed else "created",
+        "path": os.path.abspath(entry_path),
+        "relative_path": os.path.relpath(entry_path, knowledge_dir).replace(
+            "\\", "/"
+        ),
         "target": target,
-        "entities": entities,
-        "modules": modules,
         "warnings": warnings,
         "next_step": (
             "Nothing was committed. Review the diff in the fieldbook repository "
@@ -309,70 +255,58 @@ def write_knowledge(
 TOOL_DEFINITION = {
     "name": "write_knowledge",
     "description": (
-        "Create or update one knowledge entry, either in a project's fieldbook "
-        "or in the engine's own knowledge directory. This is the supported way "
-        "to add knowledge - it enforces the schema instead of trusting that "
-        "hand-written markdown follows it.\n\n"
+        "Create or overwrite one markdown file of knowledge, either in a "
+        "project's fieldbook or in the engine's own knowledge directory. This is "
+        "the supported way to add knowledge: not because it formats the entry - "
+        "the body is written through untouched - but because of what it refuses "
+        "first.\n\n"
         "What it checks before writing: the fieldbook manifest exists and its "
         "schema_version is supported; the branch it declares matches the branch "
-        "the working copy is on (refusing otherwise, since a fieldbook describes "
-        "one branch); every name in `entities` resolves to a real entity in the "
-        "dump, suggesting near misses when it does not; and the body carries no "
-        "absolute machine path.\n\n"
-        "Writing the same title twice updates that entry rather than creating a "
-        "duplicate, preserving the recorded author unless a new one is given.\n\n"
+        "the working copy is on, refusing otherwise, since a fieldbook describes "
+        "one branch; the path stays inside the knowledge directory and names a "
+        "markdown file; and the body carries no absolute machine path.\n\n"
+        "`path` is relative to the knowledge directory and is the whole of the "
+        "layout: 'iteration-rule.md' files it at the root, "
+        "'IterationRules/iteration-rule.md' creates that subfolder and files "
+        "it inside. Grouping is a convention between the people writing - no "
+        "taxonomy is imposed or validated, so reuse a folder that already exists "
+        "rather than inventing a near-duplicate of it.\n\n"
+        "Writing the same path twice OVERWRITES that file; there is no merge and "
+        "no dedup by content, so read what is there before replacing it.\n\n"
         "It writes to the working tree and stops. Version control is the user's: "
         "it never stages, commits or pushes, and touches no remote. Say so when "
         "reporting success, so nobody assumes the entry is saved anywhere but "
         "their own disk.\n\n"
-        "Use target='engine' only for knowledge that holds for any Mendix app; "
-        "it rejects `entities` for that reason. Anything specific to one app "
-        "goes in that project's fieldbook."
+        "Use target='engine' only for knowledge that holds for any Mendix app. "
+        "Anything specific to one app goes in that project's fieldbook."
     ),
     "input_schema": {
         "type": "object",
         "properties": {
-            "title": {
+            "path": {
                 "type": "string",
-                "description": "One sentence naming the topic. Also the file name.",
+                "description": (
+                    "Where to write, relative to the knowledge directory. "
+                    "'iteration-rule.md' or 'Subfolder/iteration-rule.md'. "
+                    "Missing '.md' is appended; any other extension is refused."
+                ),
             },
             "body": {
                 "type": "string",
                 "description": (
-                    "Markdown body, without front-matter - the tool writes that. "
-                    "Write what the model cannot tell you on its own: attributes "
-                    "and associations are already readable from the dump."
+                    "The full markdown content of the file, written through as "
+                    "given. Write what the model cannot tell you on its own: "
+                    "attributes and associations are already readable from the "
+                    "dump."
                 ),
             },
-            "entities": {
-                "type": "array",
-                "items": {"type": "string"},
-                "description": (
-                    "Qualified entity names ('Module.Entity') this entry is about. "
-                    "This is the field that links knowledge back to code. Rejected "
-                    "when target is 'engine'."
-                ),
-            },
-            "modules": {
-                "type": "array",
-                "items": {"type": "string"},
-                "description": "Modules involved. Derived from entities if omitted.",
-            },
-            "author": {"type": "string"},
             "target": {
                 "type": "string",
                 "enum": list(VALID_TARGETS),
                 "default": "fieldbook",
             },
-            "slug": {
-                "type": "string",
-                "description": (
-                    "Override the file name. Use it to update an entry whose title "
-                    "you are rewording."
-                ),
-            },
         },
-        "required": ["title", "body"],
+        "required": ["path", "body"],
     },
 }
 
@@ -382,7 +316,7 @@ if __name__ == "__main__":
 
     print(json.dumps(
         write_knowledge(
-            title="Example entry",
+            path="a-note.md",
             body="Body of the entry.",
             target="engine",
         ),

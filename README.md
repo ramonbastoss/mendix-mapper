@@ -36,9 +36,19 @@ Requirements:
 
 Everything above is read off the model. A **fieldbook** is the other half: the things about one app that its model cannot state — a role that looks orphaned but is not, two date fields that are not interchangeable, a name the business uses that has no entity behind it.
 
-A fieldbook is a directory that follows a fixed schema: a `fieldbook.yaml` manifest and one markdown file per topic, each declaring which entities it is about. That `entities` field is what links prose back to code — asking about an entity returns both the model and whatever has been written about it — and it is checked against the dump, so an entry cannot quietly point at something that no longer exists.
+A fieldbook is a directory with a `fieldbook.yaml` manifest and one markdown file per topic — never a single file, since a single file means a conflict on every merge request and nobody contributes twice. The manifest is the entry point: no manifest, or a `schema_version` this engine does not support, and the engine refuses the fieldbook instead of guessing its layout.
 
-Two tools handle it: `create_fieldbook` scaffolds an empty one, and `write_knowledge` creates or updates a single entry.
+Two tools handle it: `create_fieldbook` scaffolds an empty one, and `write_knowledge` writes a single markdown file into it.
+
+What goes *inside* an entry is yours — `write_knowledge` writes the body through untouched, with no front-matter and no imposed structure. What it does enforce is everything around the entry: the manifest and its `schema_version`, the fieldbook's branch against the working copy's, a path that stays inside `knowledge/` and names a `.md` file, and a body free of anybody's absolute machine path.
+
+The path is the whole of the layout: `iteration-rule.md` lands at the root of `knowledge/`, `IterationRules/iteration-rule.md` creates that subfolder. Grouping is therefore a convention between contributors, which also means a typo in a folder name grows a second group instead of failing — reuse the folders that exist.
+
+### A rule can be settled before it is built
+
+Some of what is worth writing down is a decision the app has not caught up with yet. So a fresh `knowledge/` is scaffolded with two shelves — `implemented/` and `not-implemented/` — and **the directory is the status.** Not a `status:` field, and never a body that hedges "in the future there will be…": either of those means that the day a rule ships, somebody has to find every paragraph about it and reword it, which is how a fieldbook starts lying. Entries are written in the present tense, as the rule; shipping one costs a `git mv`.
+
+This one is a habit rather than a check — an entry reaches a shelf because somebody wrote `implemented/` in the path. The cost of being wrong is lopsided: anything on `implemented/` is read as a description of the app as it stands, so when in doubt, file it as not-implemented.
 
 ### The server does not version your fieldbook
 

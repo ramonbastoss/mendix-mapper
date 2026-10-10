@@ -298,28 +298,28 @@ def tool_create_fieldbook(path: str, name: str = None, branch: str = None,
 
 
 @mcp.tool()
-def tool_write_knowledge(title: str, body: str, entities: list[str] = None,
-                         modules: list[str] = None, author: str = None,
-                         target: str = "fieldbook", slug: str = None,
-                         status: str = None, project: str = None) -> dict:
+def tool_write_knowledge(path: str, body: str, target: str = "fieldbook",
+                         project: str = None) -> dict:
     """
-    Create or update one knowledge entry — what the model itself cannot tell you.
-    Use it for the things a dump can never answer: a role that looks orphaned but
-    is not, two fields that look interchangeable and are not, a name the business
-    uses that has no entity behind it.
-    Writing the same title twice updates that entry instead of duplicating it.
-    'status' picks the shelf: 'implemented' for a rule the model already obeys,
-    'not-implemented' for one that is settled but has nothing behind it yet. The
-    directory is the status — write the rule in the present tense either way,
-    because shipping it should cost a file move and not a rewrite.
-    Every name in 'entities' is checked against the dump, and the fieldbook's
-    branch is checked against the working copy's, before anything is written.
+    Create or overwrite one markdown file of knowledge — what the model itself
+    cannot tell you. Use it for the things a dump can never answer: a role that
+    looks orphaned but is not, two fields that look interchangeable and are not,
+    a name the business uses that has no entity behind it.
+    'body' is written through exactly as given: no front-matter, no header.
+    'path' is relative to the knowledge directory and is the whole of the layout:
+    'iteration-rule.md' files it at the root, 'IterationRules/iteration-rule.md'
+    creates that subfolder. No taxonomy is imposed, so reuse a folder that exists
+    instead of inventing a near-duplicate of it.
+    Writing the same path twice OVERWRITES it — read what is there first.
+    Refused before writing: a missing or unsupported fieldbook manifest, a
+    fieldbook whose branch differs from the working copy's, a path leaving the
+    knowledge directory or not naming markdown, and an absolute machine path in
+    the body.
     Nothing is committed: the file lands in the working tree for you to review.
     Use target='engine' only for knowledge true of any Mendix app.
     If 'project' is omitted, the configured default is used.
     """
-    return write_knowledge(title, body, entities, modules, author, target, slug,
-                           status, project)
+    return write_knowledge(path, body, target, project)
 
 
 if __name__ == "__main__":

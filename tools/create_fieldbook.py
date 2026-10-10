@@ -17,6 +17,11 @@ from tools._utils import (_CONFIG_PATH, current_branch, resolve_project,
 
 SCHEMA_VERSION = 1
 
+# Scaffolded as a starting convention, not as a contract: write_knowledge takes
+# whatever relative path it is given and does not know these two by name. An
+# entry reaches a shelf because somebody wrote 'implemented/...' in the path.
+SHELVES = ("implemented", "not-implemented")
+
 _MANIFEST = """# Manifest of the {name} fieldbook.
 #
 # The engine reads this file first and discovers everything else from here. If
@@ -31,7 +36,7 @@ schema_version: {schema_version}
 # Short key. Matches the key used in the engine's projects.json.
 project: {project}
 
-# Human-readable name, used in logs and tool output.
+# Human-readable name, used in log messages and tool output.
 name: "{name}"
 
 # The branch of the Mendix app this fieldbook describes. REQUIRED.
@@ -45,8 +50,13 @@ branch: {branch}
 
 # Knowledge lives here: one markdown file per topic, never a single file, since
 # a single file means a conflict on every merge request and nobody contributes
-# twice. Each file needs the front-matter the engine requires; write_knowledge
-# produces it for you.
+# twice. Subfolders are yours to organise - write_knowledge files an entry
+# wherever the path it is given points, inside this directory.
+#
+# Scaffolded with two shelves, implemented/ and not-implemented/, saying whether
+# the model obeys a rule yet. A directory rather than a field, so the day a rule
+# ships somebody moves one file instead of rewording every paragraph that hedged
+# about it. The engine does not enforce this - it is a habit this repo keeps.
 knowledge: knowledge/
 
 # Project-specific tools, listed explicitly rather than discovered: the engine
@@ -77,9 +87,36 @@ behind it" - that is exactly what to write down.
 ## How to write an entry
 
 Use the engine's `write_knowledge` tool rather than creating markdown by hand.
-It fills in the front-matter, checks every entity name against the dump, and
-refuses an entry whose branch does not match the working copy. Writing the same
-title twice updates that entry instead of duplicating it.
+It writes the body through untouched — the content is entirely yours — but it
+refuses first: a fieldbook with no manifest or an unsupported `schema_version`,
+a fieldbook whose branch does not match the working copy, a path that leaves
+`knowledge/` or does not name a `.md` file, and a body carrying somebody's
+absolute machine path.
+
+The path you give it is the whole of the layout. `iteration-rule.md` lands at the
+root; `IterationRules/iteration-rule.md` creates that subfolder and files it
+there. Writing the same path twice **overwrites** it.
+
+Nothing imposes a taxonomy, which means nothing catches a typo in a folder name
+either: `IteratonRules/` will quietly become a second group. Reuse the folders
+that are already here instead of inventing a near-duplicate.
+
+## A rule can be settled before it is built
+
+`knowledge/` starts with two shelves:
+
+- **`implemented/`** — the model already obeys this rule.
+- **`not-implemented/`** — the rule is settled; nothing in the model backs it yet.
+
+**The directory is the status**, and no body says "in the future there will
+be..." — that would mean the day a rule ships somebody has to hunt down every
+paragraph that hedged about it and reword it, which is how a fieldbook starts
+lying. Every entry is written in the present tense, as the rule, and shipping it
+costs one file move.
+
+This is a habit, not a check: the engine files an entry wherever the path points.
+The cost of being wrong is lopsided — anything on `implemented/` is read as a
+description of the app as it stands. **When in doubt, file it as not-implemented.**
 
 ## Version control is yours
 
@@ -231,7 +268,8 @@ def create_fieldbook(path: str, name: str = None, branch: str = None,
 
     # ---- write the skeleton ---------------------------------------------
     knowledge_dir = os.path.join(path, "knowledge")
-    os.makedirs(knowledge_dir, exist_ok=True)
+    for shelf in SHELVES:
+        os.makedirs(os.path.join(knowledge_dir, shelf), exist_ok=True)
 
     files = {
         os.path.join(path, "fieldbook.yaml"): _MANIFEST.format(
@@ -243,9 +281,13 @@ def create_fieldbook(path: str, name: str = None, branch: str = None,
         os.path.join(path, "README.md"): _README.format(
             name=display_name, project=manifest_project
         ),
-        # git does not track empty directories, and an absent knowledge/ would
-        # read as a broken fieldbook on a fresh clone.
-        os.path.join(knowledge_dir, ".gitkeep"): "",
+        # git does not track empty directories, and a shelf missing from a fresh
+        # clone would read as a broken fieldbook - or worse, send the next entry
+        # to the wrong one.
+        **{
+            os.path.join(knowledge_dir, shelf, ".gitkeep"): ""
+            for shelf in SHELVES
+        },
     }
     for file_path, content in files.items():
         with open(file_path, "w", encoding="utf-8", newline="\n") as f:
@@ -294,7 +336,8 @@ TOOL_DEFINITION = {
         "Scaffold an empty fieldbook - the project-specific knowledge a Mendix "
         "app's model cannot state - and optionally register it in projects.json "
         "so the other tools find it.\n\n"
-        "Creates fieldbook.yaml, a knowledge/ directory and a README explaining "
+        "Creates fieldbook.yaml, a knowledge/ directory with its implemented/ and "
+        "not-implemented/ shelves, and a README explaining "
         "what belongs in it. 'branch' defaults to the branch the project's "
         "working copy is currently on, which is the value the engine later "
         "checks against.\n\n"
