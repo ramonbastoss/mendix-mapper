@@ -3,6 +3,8 @@
 import json
 import os
 import subprocess
+import threading
+import time
 
 _CONFIG_PATH = os.path.join(os.path.dirname(__file__), "..", "projects.json")
 
@@ -48,16 +50,101 @@ def resolve_project(project: str = None) -> tuple[str, dict]:
     return key, projects[key]
 
 
+# --- dump cache ------------------------------------------------------------
+#
+# Parsing the dump is the dominant cost of nearly every tool. A large app's dump
+# runs to a few hundred MB and some thousands of units, which is ~1.6s to read
+# and parse, and without a cache every single call pays it again: a burst of 200
+# reads was measured at 330s, almost all of it the same bytes re-parsed.
+#
+# Two things end the cache's life, and nothing else:
+#
+#   1. a different dump - the key is (path, mtime), so writing a fresh dump
+#      invalidates it as a side effect, with no coupling to generate_dump;
+#   2. disuse - the sweeper thread drops it after _CACHE_TTL_SECONDS without a
+#      read. That matters because the server runs as one process per editor
+#      session: several idle sessions each pinning a parsed dump costs far more
+#      than re-reading the file would.
+#
+# Only ONE dump is held - the last one asked for. Keying the cache by project
+# instead would let a single process accumulate every working copy you query.
+
+_CACHE_TTL_SECONDS = 20.0
+_CACHE_SWEEP_SECONDS = 5.0
+
+_cache_lock = threading.Lock()
+_cache_key = None       # (absolute dump path, mtime_ns) the units came from
+_cache_units = None     # the parsed `units` array, or None when the cache is empty
+_cache_read_at = 0.0    # time.monotonic() of the most recent read
+_cache_sweeper = None   # the eviction thread, started on first load
+
+
+def _sweep_cache() -> None:
+    """Release the cached dump once nothing has read it for the TTL.
+
+    Dropping the reference here cannot disturb a tool that is already walking
+    the list: that caller holds a reference of its own, so the data stays alive
+    until it returns and is only then collected. This needs no lock of its own
+    beyond keeping the two cache fields consistent with each other.
+    """
+    global _cache_key, _cache_units
+    while True:
+        time.sleep(_CACHE_SWEEP_SECONDS)
+        with _cache_lock:
+            if _cache_units is None:
+                continue
+            if time.monotonic() - _cache_read_at > _CACHE_TTL_SECONDS:
+                _cache_key = None
+                _cache_units = None
+
+
+def _start_sweeper_once() -> None:
+    """Start the eviction thread on first load. Caller must hold _cache_lock.
+
+    Deferred rather than started at import so that a process which never reads a
+    dump - every git tool, list_projects - spawns no thread at all.
+    """
+    global _cache_sweeper
+    if _cache_sweeper is None:
+        _cache_sweeper = threading.Thread(
+            target=_sweep_cache, name="dump-cache-sweeper", daemon=True
+        )
+        _cache_sweeper.start()
+
+
 def load_units(project: str = None) -> list:
-    """Load the `units` array from the project's dump."""
+    """Load the `units` array from the project's dump.
+
+    Held in memory between calls, so a burst of tool calls parses the dump once
+    instead of once each. The cached list is handed out BY REFERENCE: treat it
+    as read-only. Nothing in tools/ mutates it today, and a caller that started
+    would corrupt every later call in the same process.
+    """
     _, proj = resolve_project(project)
     dump_path = proj["dump_path"]
     if not os.path.exists(dump_path):
         raise FileNotFoundError(
             f"Dump not found at {dump_path}. Run generate_dump first."
         )
-    with open(dump_path, encoding="utf-8") as f:
-        return json.load(f)["units"]
+
+    global _cache_key, _cache_units, _cache_read_at
+    with _cache_lock:
+        key = (os.path.abspath(dump_path), os.stat(dump_path).st_mtime_ns)
+        if _cache_units is None or key != _cache_key:
+            # Let go of the previous dump before parsing the next one, so that
+            # switching projects never holds two parsed dumps at once. The read
+            # happens under the lock on purpose: a second caller arriving mid-
+            # parse waits and then hits the cache, rather than parsing its own
+            # copy of the same file alongside this one.
+            _cache_key = None
+            _cache_units = None
+            with open(dump_path, encoding="utf-8") as f:
+                units = json.load(f)["units"]
+            _cache_key = key
+            _cache_units = units
+            _start_sweeper_once()
+        _cache_read_at = time.monotonic()
+        return _cache_units
 
 
 def resolve_repo_path(project: str = None) -> str:
