@@ -290,6 +290,35 @@ def entity_index(project: str = None) -> dict[str, str]:
     return index
 
 
+def languages(project: str = None) -> tuple[str, list[str]]:
+    """Return (default language code, every configured code) for the app.
+
+    A multi-language app holds one translation per language on every caption,
+    and nothing in a page says which of them the users actually read. The answer
+    is a project-level setting, so any tool that renders a caption has to come
+    here for it rather than take the first translation it finds and hope.
+
+    Both halves are returned because the default alone cannot tell a caller it
+    asked for a language the app does not have.
+    """
+    units = load_units(project)
+
+    for unit in units:
+        if unit.get("$Type") != "Settings$ProjectSettings":
+            continue
+        for part in unit.get("settingsParts") or []:
+            if part.get("$Type") != "Settings$LanguageSettings":
+                continue
+            codes = [
+                language["code"]
+                for language in part.get("languages") or []
+                if language.get("code")
+            ]
+            return part.get("defaultLanguageCode") or "", codes
+
+    return "", []
+
+
 def unit_names(unit: dict) -> list[str]:
     names = []
     if unit.get("$QualifiedName"):

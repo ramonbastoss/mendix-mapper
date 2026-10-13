@@ -17,6 +17,7 @@ from tools.list_modules import list_modules
 from tools.list_projects import list_projects
 from tools.list_user_roles import list_user_roles
 from tools.read_microflow import read_microflow
+from tools.read_page import read_page
 from tools.resolve_operation_ids import resolve_operation_ids
 from tools.search_text import search_text
 from tools.write_knowledge import write_knowledge
@@ -53,10 +54,18 @@ def tool_generate_dump(project: str = None) -> dict:
 @mcp.tool()
 def tool_find_unit_by_name(name: str, project: str = None) -> dict:
     """
-    Find units by exact name.
+    Find units by exact name and return their raw JSON.
     Accepts a simple name ('ACT_Save') or a qualified one ('MyModule.ACT_Save').
     A simple name may match several modules, so prefer the qualified form when
     you know the module.
+    This is the exact model, and that is what makes it the right call for $IDs
+    to cross-reference, geometry, or a diff — and the wrong one for "what does
+    this do": a unit's raw JSON is roughly 90-97% UUIDs, layout coordinates and
+    fields left at their default, and one large page can fill a whole context
+    window on its own.
+    To read what a unit does, use tool_read_microflow (Microflow, Nanoflow,
+    Rule) or tool_read_page (Page, Snippet, Layout, PageTemplate,
+    BuildingBlock), which take the same name.
     If 'project' is omitted, the configured default is used.
     """
     return find_unit_by_name(name, project)
@@ -93,8 +102,12 @@ def tool_find_units_by_similar_name(name: str, limit: int = 10,
     line up ('SaveOrder' finds 'ACT_Order_SaveDraft').
     Case does not matter, but word boundaries do: write 'save order' or
     'SaveOrder', not 'saveorder'.
-    Returns identity fields only — id, $Type and name — so follow up with
-    tool_find_unit_by_name once you know which unit you meant.
+    Returns identity fields only — id, $Type and name — so it takes a second
+    call to read the unit you meant, and the $Type it gives back is what tells
+    you which call that is: tool_read_microflow for a Microflow, Nanoflow or
+    Rule, tool_read_page for a Page, Snippet, Layout, PageTemplate or
+    BuildingBlock, tool_find_unit_by_name for anything else or when you need the
+    raw model.
     Folders rank last unless 'unit_type' asks for them.
     If 'project' is omitted, the configured default is used.
     """
@@ -135,6 +148,34 @@ def tool_read_microflow(name: str, project: str = None) -> dict:
     If 'project' is omitted, the configured default is used.
     """
     return read_microflow(name, project)
+
+
+@mcp.tool()
+def tool_read_page(name: str, lang: str = None, project: str = None) -> dict:
+    """
+    Read one page, snippet, layout, page template or building block as a
+    linearized widget tree — the data each container reads and through which
+    association or microflow, every caption and validation message, what each
+    button calls with which arguments, and the conditions that decide what is
+    visible or editable.
+    This is the tool for "what does this screen show and do", and a snippet,
+    layout or building block is as much its job as a full page is — despite the
+    name, it is not pages only. Ask it by qualified name
+    ('MyModule.Order_Edit', 'MyModule.SNIP_OrderTotals'); a simple name that
+    matches several documents is refused with the qualified one to use.
+    Captions come back in the app's default language; pass 'lang' (e.g. 'en_US')
+    for another one, and the header lists which languages the app has.
+    The raw model is deliberately not here: UUIDs, geometry and defaults are
+    about 97% of a page's JSON, and a custom widget carries its whole property
+    schema next to the two values actually set. When you need the exact model —
+    $IDs to cross-reference, or a diff — call tool_find_unit_by_name with the
+    same name.
+    Containers that carried no class, condition or action are dropped and their
+    contents printed in their place; 'notes' says how many, so the shape is
+    never silently different from the model's.
+    If 'project' is omitted, the configured default is used.
+    """
+    return read_page(name, lang, project)
 
 
 @mcp.tool()
