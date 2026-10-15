@@ -109,6 +109,9 @@ def tool_find_units_by_similar_name(name: str, limit: int = 10,
     BuildingBlock, tool_find_unit_by_name for anything else or when you need the
     raw model.
     Folders rank last unless 'unit_type' asks for them.
+    A unit excluded from the build is ranked and returned like any other but
+    carries '"excluded": true' — the name alone will not tell you, since many
+    carry no _BackUp or _Deprecated suffix.
     If 'project' is omitted, the configured default is used.
     """
     return find_units_by_similar_name(name, limit, unit_type, project)
@@ -122,6 +125,8 @@ def tool_search_text(query: str, module: str = None, unit_type: str = None,
     This is what replaces grep on a codebase stored as binary: page labels,
     button captions, hardcoded strings in microflows, attribute names.
     Optional filters narrow it to one module or one $Type.
+    A hit in a unit excluded from the build is returned like any other but
+    carries '"excluded": true', and 'excluded_count' totals them.
     If 'project' is omitted, the configured default is used.
     """
     return search_text(query, module, unit_type, case_sensitive, project)
@@ -145,6 +150,10 @@ def tool_read_microflow(name: str, project: str = None) -> dict:
     Where the graph does not linearize (a merge reached twice, a loop back-edge)
     the step prints as 'goto <n>' and 'notes' says so, so an approximation is
     never silent.
+    A step switched off in the model prints as '[DISABLED] ...' in its own
+    place, and a flow excluded from the build says 'EXCLUDED FROM BUILD' in its
+    access line. Neither is hidden, because a suppressed step is often the
+    answer — but neither executes, so do not reason about them as live code.
     If 'project' is omitted, the configured default is used.
     """
     return read_microflow(name, project)
@@ -185,6 +194,9 @@ def tool_find_units_that_use(name: str = None, id: str = None,
     Return every unit that references the given one.
     This is the impact question: which microflows, pages or entities depend on
     it, and therefore what a change might break. Accepts an exact name or an $ID.
+    A caller excluded from the build is listed but carries '"excluded": true',
+    and 'excluded_count' totals them: it holds a reference but is not deployed,
+    so it is not live impact.
     If 'project' is omitted, the configured default is used.
     """
     return find_units_that_use(name, id, project)

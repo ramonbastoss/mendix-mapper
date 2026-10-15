@@ -2,7 +2,7 @@
 
 import json
 
-from tools._utils import load_units, unit_names
+from tools._utils import excluded_count, load_units, mark_excluded, unit_names
 
 
 def find_units_that_use(name: str = None, id: str = None, project: str = None) -> dict:
@@ -50,18 +50,31 @@ def find_units_that_use(name: str = None, id: str = None, project: str = None) -
         if unit.get("$ID") == target.get("$ID"):
             continue  # skip the target itself
         if needle in json.dumps(unit):
-            found.append({
+            found.append(mark_excluded({
                 "name": unit.get("$QualifiedName") or unit.get("name"),
                 "type": unit.get("$Type"),
                 "id": unit.get("$ID"),
-            })
+            }, unit))
 
-    return {
+    result = {
         "success": True,
         "target_unit": qualified_name,
         "total_found": len(found),
         "used_by": found,
     }
+
+    # This tool answers "what breaks if I change this", and an excluded caller
+    # does not break - it is not deployed. Left in the list because a reference
+    # from a document someone may re-enable is still worth seeing, but counted
+    # separately so the number is not read as live impact.
+    excluded = excluded_count(found)
+    if excluded:
+        result["excluded_count"] = excluded
+        result["note"] = (
+            f"{excluded} of these are excluded from the build and are marked "
+            '"excluded": true. They do not run, so they are not live impact.'
+        )
+    return result
 
 
 TOOL_DEFINITION = {

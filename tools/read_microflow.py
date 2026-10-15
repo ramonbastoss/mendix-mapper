@@ -493,6 +493,7 @@ class _Walk:
         self.visited = set()
         self.unknown = set()
         self.gotos = 0
+        self.disabled = 0
 
         self.out = {}
         for flow in flows or []:
@@ -506,6 +507,17 @@ class _Walk:
     # -- item construction --
 
     def _emit(self, depth: int, text: str, oid: str = None):
+        # A disabled activity is still in the model, still connected to its
+        # neighbours, and renders exactly like a live one - so it has to say so
+        # itself or a reader concludes that dead code runs. It stays in the
+        # output, in place and in sequence: which steps were switched off is
+        # usually the point, and the step numbers stay comparable to the canvas.
+        #
+        # Checked here rather than in each branch of _render so that any object
+        # type carrying the flag is covered, including ones added later.
+        if oid and (self.objects.get(oid) or {}).get("disabled"):
+            self.disabled += 1
+            text = f"[DISABLED] {text}"
         self.items.append({"kind": "step", "depth": depth, "text": text, "oid": oid})
 
     def _label(self, depth: int, text: str):
@@ -906,6 +918,12 @@ def read_microflow(name: str, project: str = None) -> dict:
     orphans = len(walkable - walk.visited)
 
     notes = []
+    if walk.disabled:
+        notes.append(
+            f"{walk.disabled} step(s) marked [DISABLED] are switched off in the "
+            "model and do not execute. They are printed in place, and the steps "
+            "around them run as if they were not there."
+        )
     if walk.gotos:
         notes.append(
             f"{walk.gotos} edge(s) printed as 'goto <n>': the graph merges or loops "

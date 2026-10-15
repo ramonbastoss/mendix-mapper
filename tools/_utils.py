@@ -319,6 +319,29 @@ def languages(project: str = None) -> tuple[str, list[str]]:
     return "", []
 
 
+def mark_excluded(entry: dict, unit: dict) -> dict:
+    """Flag an identity entry whose unit is excluded from the build.
+
+    An excluded document is still in the model and still matches every search,
+    but Studio Pro does not deploy it - it runs nowhere. The name is not a
+    reliable tell: plenty of them carry no _BackUp or _Deprecated suffix, so a
+    listing that stays quiet reads as if the unit were live, and a caller asking
+    what calls a microflow gets an answer inflated by callers that cannot call
+    anything.
+
+    The flag is added, never a filter: an excluded unit is often exactly what
+    the caller is looking for. Omitted when false so the common entry stays small.
+    """
+    if unit.get("excluded"):
+        entry["excluded"] = True
+    return entry
+
+
+def excluded_count(entries: list) -> int:
+    """How many of these identity entries `mark_excluded` flagged."""
+    return sum(1 for e in entries if e.get("excluded"))
+
+
 def unit_names(unit: dict) -> list[str]:
     names = []
     if unit.get("$QualifiedName"):

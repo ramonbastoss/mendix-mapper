@@ -2,7 +2,7 @@
 
 import json
 
-from tools._utils import load_units
+from tools._utils import excluded_count, load_units, mark_excluded
 
 
 def search_text(
@@ -46,18 +46,22 @@ def search_text(
             serialized = serialized.lower()
 
         if needle in serialized:
-            found.append({
+            found.append(mark_excluded({
                 "id": unit.get("$ID"),
                 "type": unit.get("$Type"),
                 "name": unit.get("$QualifiedName") or unit.get("name"),
-            })
+            }, unit))
 
-    return {
+    result = {
         "success": True,
         "query": query,
         "total_found": len(found),
         "units": found,
     }
+    excluded = excluded_count(found)
+    if excluded:
+        result["excluded_count"] = excluded
+    return result
 
 
 TOOL_DEFINITION = {

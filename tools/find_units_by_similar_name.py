@@ -3,7 +3,7 @@
 import re
 from difflib import SequenceMatcher
 
-from tools._utils import load_units, unit_names
+from tools._utils import excluded_count, load_units, mark_excluded, unit_names
 
 # A query token is truncated to this many characters before being looked for
 # inside a candidate name. Names carry the same stem under different
@@ -146,12 +146,12 @@ def find_units_by_similar_name(name: str, limit: int = 10, unit_type: str = None
     ranked = sorted(best.items(), key=sort_key)
 
     results = [
-        {
+        mark_excluded({
             "id": unit.get("$ID"),
             "type": unit.get("$Type"),
             "name": unit.get("$QualifiedName") or unit.get("name"),
             "score": round(-neg_ratio, 3),
-        }
+        }, unit)
         for _, (tier, neg_weight, neg_ratio, unit) in ranked[:limit]
     ]
 
@@ -161,6 +161,9 @@ def find_units_by_similar_name(name: str, limit: int = 10, unit_type: str = None
         "returned": len(results),
         "units": results,
     }
+    excluded = excluded_count(results)
+    if excluded:
+        out["excluded_count"] = excluded
     if len(ranked) > len(results):
         out["note"] = (
             f"{len(ranked)} units matched and the closest {len(results)} are "
