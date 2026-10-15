@@ -3,7 +3,6 @@ from mcp.server.fastmcp import FastMCP
 from tools.create_fieldbook import create_fieldbook
 from tools.find_unit_by_id import find_unit_by_id
 from tools.find_unit_by_name import find_unit_by_name
-from tools.find_units_by_ids import find_units_by_ids
 from tools.find_units_by_similar_name import find_units_by_similar_name
 from tools.find_units_that_use import find_units_that_use
 from tools.generate_dump import generate_dump
@@ -79,16 +78,6 @@ def tool_find_unit_by_id(id: str, project: str = None) -> dict:
     If 'project' is omitted, the configured default is used.
     """
     return find_unit_by_id(id, project)
-
-
-@mcp.tool()
-def tool_find_units_by_ids(ids: list[str], project: str = None) -> dict:
-    """
-    Resolve several unit $IDs at once.
-    IDs that do not exist are flagged individually instead of failing the call.
-    If 'project' is omitted, the configured default is used.
-    """
-    return find_units_by_ids(ids, project)
 
 
 @mcp.tool()
