@@ -15,6 +15,7 @@ from tools.list_folder_structure import list_folder_structure
 from tools.list_modules import list_modules
 from tools.list_projects import list_projects
 from tools.list_user_roles import list_user_roles
+from tools.read_domain_model import read_domain_model
 from tools.read_microflow import read_microflow
 from tools.read_page import read_page
 from tools.resolve_operation_ids import resolve_operation_ids
@@ -174,6 +175,40 @@ def tool_read_page(name: str, lang: str = None, project: str = None) -> dict:
     If 'project' is omitted, the configured default is used.
     """
     return read_page(name, lang, project)
+
+
+@mcp.tool()
+def tool_read_domain_model(name: str, access_rules: bool = False,
+                           lang: str = None, project: str = None) -> dict:
+    """
+    Read a domain model as text — attributes with their types and defaults, the
+    inheritance chain, validation rules, indexes, event handlers, and every
+    association with both of its ends named.
+    This is the tool for "what is the data model". Pass a module name
+    ('MyModule') for its whole domain model, or an entity ('MyModule.Order') for
+    just that entity plus what it inherits, what specializes it, and every
+    association that touches it from anywhere in the app. A name that is both a
+    module and an entity is read as the module, and 'notes' says so.
+    Three joins the raw model leaves open are resolved here, and they are the
+    reason to prefer this over the raw unit. An association's two ends are
+    UUIDs in the model and names here. 'persistable' and the system members
+    (createdDate, changedDate, owner, changedBy) are stored ONLY on the entity
+    at the root of an inheritance chain, so a specialization carries none of
+    them — the chain is walked and the line says which ancestor the answer came
+    from. And the entities that specialize an entity, or hold an association to
+    it from another module, are not in its own unit at all.
+    Access rules are off by default because they are the bulk of a domain model
+    — 84.6% of the largest entity measured. The count and the number of roles
+    are always printed; pass access_rules=true for the XPath constraints and the
+    per-member rights. An entity with no rule at all prints 'rules none', which
+    is a different fact from rules withheld.
+    Entities are not top-level units and a domain model has no name at all, so
+    neither find_unit_by_name nor search_text can be asked for one by name —
+    this tool is the way in. When the exact model is what you need, 'notes'
+    carries the domain model's $ID for find_unit_by_id.
+    If 'project' is omitted, the configured default is used.
+    """
+    return read_domain_model(name, access_rules, lang, project)
 
 
 @mcp.tool()

@@ -16,6 +16,7 @@ This server fixes both ends of that:
 Once the server is connected, questions like these become answerable without leaving the conversation:
 
 - What uses `MyModule.MyEntity`? What breaks if I change it?
+- What is this module's data model? Is `MyModule.Order` persistable, what does it inherit, what specializes it, and which entities in other modules hold an association to it?
 - Which microflows write to this attribute?
 - Who changed this microflow, and when? What did they change?
 - Which entities are reachable from the client, and what access rules do they have?
