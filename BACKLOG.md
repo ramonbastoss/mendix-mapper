@@ -133,9 +133,13 @@ Last reviewed against the tree at `733a9a3` — 20 registered tools, plus
       the same field but it is constant there, so rendering it on pages would add
       noise and no information.
       The cost of marking is bounded by how rare the exception is: measured across
-      4,029 flow parameters, **61 are optional (1.5%), in 53 of 2,875 flows
-      (1.8%)** — so 98% of outputs are byte-identical, and only the exception
-      carries ink. Two facts that shaped the rendering: `isRequired` is never
+      4,019 flow parameters, **61 are optional (1.5%), in 53 of 2,867 flows
+      (1.8%)** — so 98% of outputs are byte-identical, verified by rendering the
+      same flows against the previous tree, and only the exception carries ink.
+      Remeasuring moves the denominators and leaves the counts alone: a dump taken
+      hours earlier gave 4,029 and 2,875, the same 61 optional in the same 53
+      flows. Treat the totals as the vintage of one dump and the counts as the
+      finding. Two facts that shaped the rendering: `isRequired` is never
       absent, so nothing has to be inferred; and **no required parameter anywhere
       carries a default**, which is what makes a default meaningful only on an
       optional one. A blank default is kept distinct from a default of `''` —
