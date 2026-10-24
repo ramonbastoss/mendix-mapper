@@ -144,6 +144,10 @@ def tool_read_microflow(name: str, project: str = None) -> dict:
     place, and a flow excluded from the build says 'EXCLUDED FROM BUILD' in its
     access line. Neither is hidden, because a suppressed step is often the
     answer — but neither executes, so do not reason about them as live code.
+    A parameter a caller is allowed to omit prints as 'name: type (optional)',
+    carrying its default when it declares one. An unmarked parameter is
+    required, so a call that passes fewer arguments than the flow has
+    parameters is only missing the optional ones — not a defect.
     If 'project' is omitted, the configured default is used.
     """
     return read_microflow(name, project)

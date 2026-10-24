@@ -121,15 +121,26 @@ Last reviewed against the tree at `733a9a3` — 20 registered tools, plus
       Reading a validation flow means answering "where does this get set", and
       today that is manual re-reading of the body. The linearizer already walks
       every activity; the write sites are in reach.
-- [ ] **`read_microflow` does not say whether a parameter is optional.** The model
-      carries `isRequired` and a `defaultValue` per flow parameter and the
-      linearizer prints `name: type`, dropping both. Measured on a three-parameter
-      flow where one parameter was optional with an enumeration default: all three
-      printed identically, so the reader concludes every call site supplies it and
-      goes looking for the bug somewhere else. This is omitted *suppression*, not
-      omitted detail — nothing in the output says "unknown" (see the invariant
-      below). Flow-only: page parameters carry the same field but it is constant
-      there, so rendering it on pages would add noise and no information.
+- [x] **`read_microflow` does not say whether a parameter is optional.** *Shipped:
+      an optional parameter now prints `name: type (optional)`, with its default
+      when it declares one.* The model carries `isRequired` and a `defaultValue`
+      per flow parameter and the linearizer printed `name: type`, dropping both.
+      Measured on a three-parameter flow where one parameter was optional with an
+      enumeration default: all three printed identically, so the reader concludes
+      every call site supplies it and goes looking for the bug somewhere else.
+      This is omitted *suppression*, not omitted detail — nothing in the output
+      said "unknown" (see the invariant below). Flow-only: page parameters carry
+      the same field but it is constant there, so rendering it on pages would add
+      noise and no information.
+      The cost of marking is bounded by how rare the exception is: measured across
+      4,029 flow parameters, **61 are optional (1.5%), in 53 of 2,875 flows
+      (1.8%)** — so 98% of outputs are byte-identical, and only the exception
+      carries ink. Two facts that shaped the rendering: `isRequired` is never
+      absent, so nothing has to be inferred; and **no required parameter anywhere
+      carries a default**, which is what makes a default meaningful only on an
+      optional one. A blank default is kept distinct from a default of `''` —
+      32 of the 61 are blank — because the first leaves the argument empty and
+      the second passes an empty string.
 
 ## Invariants worth not breaking
 

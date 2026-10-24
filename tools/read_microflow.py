@@ -804,6 +804,25 @@ class _Walk:
 
 # --- header ----------------------------------------------------------------
 
+def _optionality(parameter: dict) -> str:
+    """'' when a parameter is required, ' (optional)' with its default when not.
+
+    Only the exception is marked: a required parameter is the norm, so an
+    unmarked one still reads as 'every call site supplies this' -- which is now
+    true rather than assumed.
+
+    The default is an expression ('empty', 'false', a qualified enumeration
+    member), and it is only ever meaningful here, since no required parameter
+    carries one. A blank default is a different fact from a default of '' -- the
+    first leaves the argument empty, the second passes an empty string -- so a
+    blank one prints no default clause instead of inventing one.
+    """
+    if parameter.get("isRequired") is not False:
+        return ""
+    default = (parameter.get("defaultValue") or "").strip()
+    return f" (optional, default {default})" if default else " (optional)"
+
+
 def _header(unit: dict, objects: dict) -> list:
     name = unit.get("$QualifiedName") or unit.get("name") or "?"
     returns = _data_type(unit.get("microflowReturnType"))
@@ -818,6 +837,7 @@ def _header(unit: dict, objects: dict) -> list:
     if parameters:
         rendered = " | ".join(
             f"{p.get('name', '?')}: {_data_type(p.get('variableType'))}"
+            f"{_optionality(p)}"
             for p in parameters
         )
         lines.append(f"params  {rendered}")
