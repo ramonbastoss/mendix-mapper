@@ -90,3 +90,7 @@ Two consequences worth stating plainly:
 ## Status
 
 Early. The code is being extracted from a private working version and lands here after a cleanup pass — the API is expected to change until the first tagged release.
+
+## License
+
+[MIT](LICENSE). Fork it, rename it, change it, ship it, sell it — the one condition is that the copyright and permission notice travel with the copy, so keep `LICENSE` in your fork.

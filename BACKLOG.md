@@ -23,9 +23,12 @@ Last reviewed against the tree at `733a9a3` — 20 registered tools, plus
 
 ## Release hygiene
 
-- [ ] **No `LICENSE`.** A public repo without one is "all rights reserved", which
-      legally blocks the reuse the repo exists to allow. MIT closes it in one file.
-      *Deliberately deferred by the owner, not forgotten.*
+- [x] **`LICENSE` — done, MIT.** A public repo without one is "all rights reserved",
+      which legally blocked the reuse this repo exists to allow. What MIT requires
+      is that the notice travel with the copy; it does not require visible credit
+      in a fork's README or UI, and a custom clause demanding that would cost more
+      adoption than the credit is worth. Apache-2.0 was considered for its patent
+      grant and its duty to state changes, and judged not worth the extra length.
 - [ ] **One admin.** Bus factor of one on the only copy that is meant to outlive
       the author's machine. Visibility does not fix this; a second commit bit does.
       *Also deliberately deferred.*
