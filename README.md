@@ -33,6 +33,29 @@ Requirements:
 - Mendix Studio Pro installed (the server shells out to `mx.exe` to dump the `.mpr`; Studio Pro never needs to be running)
 - Windows (paths and `mx.exe` are Windows-oriented today)
 
+## The dump is a snapshot, and says so
+
+Every tool reads a JSON dump of the `.mpr`, produced by `generate_dump`. A dump does not refresh itself, so it starts going out of date the moment you edit the app — and an answer drawn from a stale dump looks exactly like an answer drawn from a fresh one.
+
+So the tools that read the dump report it. When the model has moved on, their response carries a `stale_dump` field with how far behind the dump is and, where possible, which units changed:
+
+```json
+"stale_dump": {
+  "dump_generated": "2026-01-14 12:20:55",
+  "model_modified":  "2026-01-14 13:16:36",
+  "behind_by": "56 minutes",
+  "changed_units": 3,
+  "changed": ["MyModule.ACT_Save", "MyModule.Overview", "MyModule.Helper"],
+  "advice": "..."
+}
+```
+
+Naming the changed units is what makes the warning actionable: a dump an hour behind on units unrelated to your question is not a reason to spend a minute regenerating. That precision comes from a snapshot of the `.mpr`'s per-unit hashes, which `generate_dump` writes next to the dump as `<dump-name>.index.json` — a few hundred KB. A dump generated without one still reports how far behind it is, and says that it cannot list the units.
+
+A side effect of comparing hashes rather than timestamps: Studio Pro rewrites the `.mpr` for things that are not model edits, and those no longer raise a false alarm.
+
+No field means the dump is current. Tools that do not read the dump — `list_projects`, the git family — never carry it.
+
 ## Fieldbooks
 
 Everything above is read off the model. A **fieldbook** is the other half: the things about one app that its model cannot state — a role that looks orphaned but is not, two date fields that are not interchangeable, a name the business uses that has no entity behind it.

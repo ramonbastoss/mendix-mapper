@@ -3,7 +3,7 @@
 import os
 import subprocess
 
-from tools._utils import resolve_project
+from tools._utils import resolve_project, write_dump_index
 
 
 def generate_dump(project: str = None) -> dict:
@@ -39,6 +39,11 @@ def generate_dump(project: str = None) -> dict:
         # sit on different Studio Pro versions.
         mx_path = proj.get("mx_path", "mx")
 
+        # Snapshot the unit hashes first, so a later call can say exactly which
+        # units moved since this dump instead of only that something did. Taken
+        # before `mx` runs on purpose - see write_dump_index.
+        indexed = write_dump_index(dump_path, mpr_path)
+
         with open(dump_path, "w", encoding="utf-8") as dump_file:
             result = subprocess.run(
                 [mx_path, "dump-mpr", mpr_path],
@@ -60,6 +65,7 @@ def generate_dump(project: str = None) -> dict:
             "message": "Dump generated.",
             "path": dump_path,
             "size_mb": round(size_mb, 2),
+            "staleness_tracked": indexed,
         }
 
     except FileNotFoundError:

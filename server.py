@@ -1,5 +1,6 @@
 from mcp.server.fastmcp import FastMCP
 
+from tools._utils import dump_backed
 from tools.create_fieldbook import create_fieldbook
 from tools.find_unit_by_id import find_unit_by_id
 from tools.find_unit_by_name import find_unit_by_name
@@ -44,6 +45,9 @@ def tool_generate_dump(project: str = None) -> dict:
     Regenerate the JSON dump of a Mendix app from its .mpr file.
     Call this when the working copy has changed and the answers should reflect
     the latest model — the dump does not refresh itself.
+    Also snapshots the model's per-unit hashes beside the dump, which is what
+    later lets the other tools name the units that changed rather than only
+    report that the dump is behind. 'staleness_tracked' says whether it worked.
     If 'project' is omitted, the configured default is used.
     """
     return generate_dump(project)
@@ -52,6 +56,7 @@ def tool_generate_dump(project: str = None) -> dict:
 # --- finding units ---------------------------------------------------------
 
 @mcp.tool()
+@dump_backed
 def tool_find_unit_by_name(name: str, project: str = None) -> dict:
     """
     Find units by exact name and return their raw JSON.
@@ -72,6 +77,7 @@ def tool_find_unit_by_name(name: str, project: str = None) -> dict:
 
 
 @mcp.tool()
+@dump_backed
 def tool_find_unit_by_id(id: str, project: str = None) -> dict:
     """
     Return the full JSON of a single unit by its exact $ID (a UUID).
@@ -82,6 +88,7 @@ def tool_find_unit_by_id(id: str, project: str = None) -> dict:
 
 
 @mcp.tool()
+@dump_backed
 def tool_find_units_by_similar_name(name: str, limit: int = 10,
                                     unit_type: str = None,
                                     project: str = None) -> dict:
@@ -108,6 +115,7 @@ def tool_find_units_by_similar_name(name: str, limit: int = 10,
 
 
 @mcp.tool()
+@dump_backed
 def tool_search_text(query: str, module: str = None, unit_type: str = None,
                      case_sensitive: bool = False, project: str = None) -> dict:
     """
@@ -125,6 +133,7 @@ def tool_search_text(query: str, module: str = None, unit_type: str = None,
 # --- understanding the app -------------------------------------------------
 
 @mcp.tool()
+@dump_backed
 def tool_read_microflow(name: str, project: str = None) -> dict:
     """
     Read one microflow, nanoflow or rule as linearized text — numbered steps,
@@ -154,6 +163,7 @@ def tool_read_microflow(name: str, project: str = None) -> dict:
 
 
 @mcp.tool()
+@dump_backed
 def tool_read_page(name: str, lang: str = None, project: str = None) -> dict:
     """
     Read one page, snippet, layout, page template or building block as a
@@ -182,6 +192,7 @@ def tool_read_page(name: str, lang: str = None, project: str = None) -> dict:
 
 
 @mcp.tool()
+@dump_backed
 def tool_read_domain_model(name: str, access_rules: bool = False,
                            lang: str = None, project: str = None) -> dict:
     """
@@ -216,6 +227,7 @@ def tool_read_domain_model(name: str, access_rules: bool = False,
 
 
 @mcp.tool()
+@dump_backed
 def tool_find_units_that_use(name: str = None, id: str = None,
                              project: str = None) -> dict:
     """
@@ -231,6 +243,7 @@ def tool_find_units_that_use(name: str = None, id: str = None,
 
 
 @mcp.tool()
+@dump_backed
 def tool_list_folder_structure(module: str = None, folder: str = None,
                                project: str = None) -> dict:
     """
@@ -243,6 +256,7 @@ def tool_list_folder_structure(module: str = None, folder: str = None,
 
 
 @mcp.tool()
+@dump_backed
 def tool_list_modules(source: str = "all", project: str = None) -> dict:
     """
     List the app's modules.
@@ -278,6 +292,7 @@ def tool_resolve_operation_ids(ids: list[str], verbose: bool = False,
 # --- security --------------------------------------------------------------
 
 @mcp.tool()
+@dump_backed
 def tool_list_user_roles(project: str = None) -> dict:
     """
     Return the app's user roles, with the module roles each one aggregates and
@@ -288,6 +303,7 @@ def tool_list_user_roles(project: str = None) -> dict:
 
 
 @mcp.tool()
+@dump_backed
 def tool_get_module_security(module: str, project: str = None) -> dict:
     """
     Return a module's security unit and the module roles defined in it.
@@ -316,6 +332,7 @@ def tool_git_history(project: str = None, author: str = None, since: str = None,
 
 
 @mcp.tool()
+@dump_backed
 def tool_git_unit_history(unit: str, project: str = None, author: str = None,
                           since: str = None, until: str = None,
                           branch: str = None, limit: int = None,
